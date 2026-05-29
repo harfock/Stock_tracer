@@ -29,6 +29,24 @@ export default function App() {
   });
 
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredNotification[]>([]);
+  
+  // Tracking references for real-time background sync loop to bypass state captures
+  const lastStocksRef = React.useRef<Stock[]>(stocks);
+  const lastIndicesRef = React.useRef<MarketIndex[]>(indices);
+  const lastAlertsRef = React.useRef<PriceAlert[]>(alerts);
+
+  useEffect(() => {
+    lastStocksRef.current = stocks;
+  }, [stocks]);
+
+  useEffect(() => {
+    lastIndicesRef.current = indices;
+  }, [indices]);
+
+  useEffect(() => {
+    lastAlertsRef.current = alerts;
+  }, [alerts]);
+
   const [activeMarketFilter, setActiveMarketFilter] = useState<'All' | 'US' | 'HK' | 'A-Share'>('All');
   
   // Custom stock additions
@@ -140,7 +158,7 @@ export default function App() {
                   const q = found.data;
 
                   // Trigger alerts logic based on actual real price
-                  alerts.forEach((alert) => {
+                  lastAlertsRef.current.forEach((alert) => {
                     if (alert.symbol === stock.symbol && alert.active) {
                       let hit = false;
                       if (alert.condition === 'above' && q.price >= alert.value) {
@@ -193,7 +211,7 @@ export default function App() {
             const pointsDiff = updatedPrice - stock.price;
 
             // Process alerts trigger
-            alerts.forEach((alert) => {
+            lastAlertsRef.current.forEach((alert) => {
               if (alert.symbol === stock.symbol && alert.active) {
                 let hit = false;
                 if (alert.condition === 'above' && updatedPrice >= alert.value) {
@@ -281,27 +299,23 @@ export default function App() {
     }
   };
 
-  // Run initial Real Quote Load & define real-time background sync interval
+  // Run initial Real Quote Load & define high-frequency background sync interval (3 seconds)
   useEffect(() => {
-    const stockSymbols = stocks.map((s) => s.symbol);
-    const indexSymbols = indices.map((i) => i.symbol);
+    const stockSymbols = lastStocksRef.current.map((s) => s.symbol);
+    const indexSymbols = lastIndicesRef.current.map((i) => i.symbol);
     
     // Initial fetch on mount
     fetchAllRealQuotes(stockSymbols, indexSymbols);
 
-    // Dynamic polling interval (every 8 seconds) to update actual prices for free
+    // Dynamic high-frequency polling interval to simulate second-by-second changes
     const syncInterval = setInterval(() => {
-      // Re-evaluate the active list in case items were added/removed
-      setStocks((currentVal) => {
-        const activeStockSyms = currentVal.map((s) => s.symbol);
-        const activeIndexSyms = indices.map((i) => i.symbol);
-        fetchAllRealQuotes(activeStockSyms, activeIndexSyms);
-        return currentVal;
-      });
-    }, 8000);
+      const activeStockSyms = lastStocksRef.current.map((s) => s.symbol);
+      const activeIndexSyms = lastIndicesRef.current.map((i) => i.symbol);
+      fetchAllRealQuotes(activeStockSyms, activeIndexSyms);
+    }, 3000);
 
     return () => clearInterval(syncInterval);
-  }, [alerts]);
+  }, []);
 
   const handleAddStock = (e: React.FormEvent) => {
     e.preventDefault();

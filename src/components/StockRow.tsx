@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Stock, PriceAlert, StockAnalysis } from '../types';
 import { ChevronDown, Bell, Loader2, Sparkles, TrendingUp, TrendingDown, DollarSign, Activity, AlertCircle, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,6 +34,43 @@ export default function StockRow({
   const [hoveredPoint, setHoveredPoint] = useState<{ time: number; price: number; volume: number; index: number; xPercent: number } | null>(null);
   const [isMockChart, setIsMockChart] = useState<boolean>(false);
   const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
+
+  // Dynamic real-time ticking flash state and relative chart updates
+  const [flashClass, setFlashClass] = useState<'flash-up' | 'flash-down' | null>(null);
+  const prevPriceRef = useRef<number>(stock.price);
+
+  useEffect(() => {
+    if (stock.price > prevPriceRef.current) {
+      setFlashClass('flash-up');
+      const timer = setTimeout(() => setFlashClass(null), 800);
+      
+      // Keep active chart in sync
+      setChartData((prevArr) => {
+        if (!prevArr || prevArr.length === 0) return prevArr;
+        const copy = [...prevArr];
+        copy[copy.length - 1] = {
+          ...copy[copy.length - 1],
+          price: stock.price
+        };
+        return copy;
+      });
+    } else if (stock.price < prevPriceRef.current) {
+      setFlashClass('flash-down');
+      const timer = setTimeout(() => setFlashClass(null), 800);
+
+      // Keep active chart in sync
+      setChartData((prevArr) => {
+        if (!prevArr || prevArr.length === 0) return prevArr;
+        const copy = [...prevArr];
+        copy[copy.length - 1] = {
+          ...copy[copy.length - 1],
+          price: stock.price
+        };
+        return copy;
+      });
+    }
+    prevPriceRef.current = stock.price;
+  }, [stock.price]);
 
   // Reset news selection when stock row collapses
   useEffect(() => {
@@ -306,7 +343,13 @@ export default function StockRow({
 
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <div className="font-mono font-semibold text-slate-950 text-[15px] tabular-nums">
+            <div className={`font-mono font-semibold text-[15px] tabular-nums transition-all duration-300 rounded px-1.5 py-0.5 ${
+              flashClass === 'flash-up'
+                ? 'text-emerald-700 bg-emerald-500/15 scale-105 ring-1 ring-emerald-500/10'
+                : flashClass === 'flash-down'
+                ? 'text-rose-700 bg-rose-500/15 scale-105 ring-1 ring-rose-500/10'
+                : 'text-slate-950'
+            }`}>
               {stock.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div
