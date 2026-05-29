@@ -1,0 +1,6 @@
+{
+  "name": "Global Stock Tracker",
+  "description": "A full-stack global stock tracking terminal with real-time price streaming, list management, price threshold alerts, interactive sparklines, and AI-powered evaluation powered by Gemini Search Grounding.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
