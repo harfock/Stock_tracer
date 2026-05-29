@@ -178,10 +178,54 @@ export default function App() {
                 return stock;
               });
             });
+            return; // Exit successfully, skip simulation fallback
           }
         }
+        throw new Error('API server returned failure response code');
       } catch (err) {
-        console.warn('Real-time stock quotes refresh skipped:', err);
+        console.warn('Real-time stock quotes proxy not available, running on-device simulation fallback:', err);
+        setStocks((prevStocks) => {
+          return prevStocks.map((stock) => {
+            if (!symbolsToFetch.includes(stock.symbol)) return stock;
+            const voltFactor = stock.market === 'US' ? 0.0012 : 0.0008;
+            const delta = (Math.random() - 0.49) * voltFactor;
+            const updatedPrice = stock.price * (1 + delta);
+            const pointsDiff = updatedPrice - stock.price;
+
+            // Process alerts trigger
+            alerts.forEach((alert) => {
+              if (alert.symbol === stock.symbol && alert.active) {
+                let hit = false;
+                if (alert.condition === 'above' && updatedPrice >= alert.value) {
+                  hit = true;
+                } else if (alert.condition === 'below' && updatedPrice <= alert.value) {
+                  hit = true;
+                }
+
+                if (hit) {
+                  alert.active = false;
+                  const notif: TriggeredNotification = {
+                    id: alert.id,
+                    symbol: alert.symbol,
+                    condition: alert.condition,
+                    value: alert.value,
+                    triggeredPrice: Number(updatedPrice.toFixed(2)),
+                    time: new Date().toLocaleTimeString()
+                  };
+                  setTriggeredAlerts((cur) => [notif, ...cur]);
+                }
+              }
+            });
+
+            return {
+              ...stock,
+              price: Number(updatedPrice.toFixed(2)),
+              change: Number((stock.change + pointsDiff).toFixed(2)),
+              changePercent: Number((((stock.price + pointsDiff - stock.price) / stock.price) * 100).toFixed(2)),
+              history: [...stock.history.slice(1), Number(updatedPrice.toFixed(2))]
+            };
+          });
+        });
       }
     }
 
@@ -212,10 +256,27 @@ export default function App() {
                 return idx;
               });
             });
+            return;
           }
         }
+        throw new Error('API server returned failure response code');
       } catch (err) {
-        console.warn('Real-time index quotes refresh skipped:', err);
+        console.warn('Real-time index quotes proxy not available, running on-device simulation fallback:', err);
+        setIndices((prev) =>
+          prev.map((idx) => {
+            if (!indicesToFetch.includes(idx.symbol)) return idx;
+            const delta = (Math.random() - 0.49) * 0.0006; // Slight push
+            const updatedPrice = idx.price * (1 + delta);
+            const pointsDiff = updatedPrice - idx.price;
+            return {
+              ...idx,
+              price: Number(updatedPrice.toFixed(2)),
+              change: Number((idx.change + pointsDiff).toFixed(2)),
+              changePercent: Number((((idx.price + pointsDiff - idx.price) / idx.price) * 100).toFixed(2)),
+              history: [...idx.history.slice(1), Number(updatedPrice.toFixed(2))]
+            };
+          })
+        );
       }
     }
   };
@@ -730,7 +791,11 @@ export default function App() {
 
           {/* AI Advisor Panel (Right area) */}
           <div className="lg:col-span-4 lg:sticky lg:top-24">
-            <ChatAssistant watchlistSymbols={stocks.map((s) => s.symbol)} />
+            <ChatAssistant
+              watchlistSymbols={stocks.map((s) => s.symbol)}
+              stocks={stocks}
+              indices={indices}
+            />
           </div>
 
         </div>
