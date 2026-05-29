@@ -5,6 +5,7 @@ import IndicesHeader from './components/IndicesHeader';
 import StockRow from './components/StockRow';
 import ChatAssistant from './components/ChatAssistant';
 import { Clock, Plus, Trash2, Search, BellRing, Sparkles, TrendingUp, TrendingDown, HelpCircle, CheckCircle, Info, Settings, Key, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { clientSideFetchYahooQuotes } from './lib/yahooFinance';
 
 interface TriggeredNotification {
   id: string;
@@ -142,6 +143,7 @@ export default function App() {
   const fetchAllRealQuotes = async (symbolsToFetch: string[], indicesToFetch: string[]) => {
     // 1. Fetch real stock quotes
     if (symbolsToFetch.length > 0) {
+      let results: any = null;
       try {
         const res = await fetch('/api/stocks/quotes', {
           method: 'POST',
@@ -151,57 +153,70 @@ export default function App() {
         if (res.ok) {
           const body = await res.json();
           if (body.success && body.results) {
-            setStocks((curStocks) => {
-              return curStocks.map((stock) => {
-                const found = body.results.find((r: any) => r.symbol === stock.symbol);
-                if (found && found.success && found.data) {
-                  const q = found.data;
-
-                  // Trigger alerts logic based on actual real price
-                  lastAlertsRef.current.forEach((alert) => {
-                    if (alert.symbol === stock.symbol && alert.active) {
-                      let hit = false;
-                      if (alert.condition === 'above' && q.price >= alert.value) {
-                        hit = true;
-                      } else if (alert.condition === 'below' && q.price <= alert.value) {
-                        hit = true;
-                      }
-
-                      if (hit) {
-                        alert.active = false;
-                        const notif: TriggeredNotification = {
-                          id: alert.id,
-                          symbol: alert.symbol,
-                          condition: alert.condition,
-                          value: alert.value,
-                          triggeredPrice: q.price,
-                          time: new Date().toLocaleTimeString()
-                        };
-                        setTriggeredAlerts((cur) => [notif, ...cur]);
-                      }
-                    }
-                  });
-
-                  return {
-                    ...stock,
-                    price: q.price,
-                    change: q.change,
-                    changePercent: q.changePercent,
-                    high: q.high,
-                    low: q.low,
-                    volume: q.volume || stock.volume,
-                    history: q.history && q.history.length > 0 ? q.history : stock.history
-                  };
-                }
-                return stock;
-              });
-            });
-            return; // Exit successfully, skip simulation fallback
+            results = body.results;
           }
         }
-        throw new Error('API server returned failure response code');
       } catch (err) {
-        console.warn('Real-time stock quotes proxy not available, running on-device simulation fallback:', err);
+        console.warn('Real-time stock quotes proxy not available on backend. Trying direct browser fallback via CORS proxy:', err);
+      }
+
+      // Browser CORS proxy direct fallback
+      if (!results) {
+        try {
+          results = await clientSideFetchYahooQuotes(symbolsToFetch);
+        } catch (clientErr) {
+          console.error('Direct browser-side Yahoo Finance quotes fetch failed:', clientErr);
+        }
+      }
+
+      if (results) {
+        setStocks((curStocks) => {
+          return curStocks.map((stock) => {
+            const found = results.find((r: any) => r.symbol === stock.symbol);
+            if (found && found.success && found.data) {
+              const q = found.data;
+
+              // Trigger alerts logic based on actual real price
+              lastAlertsRef.current.forEach((alert) => {
+                if (alert.symbol === stock.symbol && alert.active) {
+                  let hit = false;
+                  if (alert.condition === 'above' && q.price >= alert.value) {
+                    hit = true;
+                  } else if (alert.condition === 'below' && q.price <= alert.value) {
+                    hit = true;
+                  }
+
+                  if (hit) {
+                    alert.active = false;
+                    const notif: TriggeredNotification = {
+                      id: alert.id,
+                      symbol: alert.symbol,
+                      condition: alert.condition,
+                      value: alert.value,
+                      triggeredPrice: q.price,
+                      time: new Date().toLocaleTimeString()
+                    };
+                    setTriggeredAlerts((cur) => [notif, ...cur]);
+                  }
+                }
+              });
+
+              return {
+                ...stock,
+                price: q.price,
+                change: q.change,
+                changePercent: q.changePercent,
+                high: q.high,
+                low: q.low,
+                volume: q.volume || stock.volume,
+                history: q.history && q.history.length > 0 ? q.history : stock.history
+              };
+            }
+            return stock;
+          });
+        });
+      } else {
+        // Run on-device simulation if ALL real quote requests fail
         setStocks((prevStocks) => {
           return prevStocks.map((stock) => {
             if (!symbolsToFetch.includes(stock.symbol)) return stock;
@@ -249,6 +264,7 @@ export default function App() {
 
     // 2. Fetch real market index quotations
     if (indicesToFetch.length > 0) {
+      let results: any = null;
       try {
         const res = await fetch('/api/stocks/quotes', {
           method: 'POST',
@@ -258,28 +274,41 @@ export default function App() {
         if (res.ok) {
           const body = await res.json();
           if (body.success && body.results) {
-            setIndices((curIndices) => {
-              return curIndices.map((idx) => {
-                const found = body.results.find((r: any) => r.symbol === idx.symbol);
-                if (found && found.success && found.data) {
-                  const q = found.data;
-                  return {
-                    ...idx,
-                    price: q.price,
-                    change: q.change,
-                    changePercent: q.changePercent,
-                    history: q.history && q.history.length > 0 ? q.history : idx.history
-                  };
-                }
-                return idx;
-              });
-            });
-            return;
+            results = body.results;
           }
         }
-        throw new Error('API server returned failure response code');
       } catch (err) {
-        console.warn('Real-time index quotes proxy not available, running on-device simulation fallback:', err);
+        console.warn('Real-time index quotes proxy not available on backend. Trying direct browser fallback via CORS proxy:', err);
+      }
+
+      // Direct client-side index query fallback
+      if (!results) {
+        try {
+          results = await clientSideFetchYahooQuotes(indicesToFetch);
+        } catch (clientErr) {
+          console.error('Direct browser-side Yahoo index fetch failed:', clientErr);
+        }
+      }
+
+      if (results) {
+        setIndices((curIndices) => {
+          return curIndices.map((idx) => {
+            const found = results.find((r: any) => r.symbol === idx.symbol);
+            if (found && found.success && found.data) {
+              const q = found.data;
+              return {
+                ...idx,
+                price: q.price,
+                change: q.change,
+                changePercent: q.changePercent,
+                history: q.history && q.history.length > 0 ? q.history : idx.history
+              };
+            }
+            return idx;
+          });
+        });
+      } else {
+        // Run index simulation if real data fails
         setIndices((prev) =>
           prev.map((idx) => {
             if (!indicesToFetch.includes(idx.symbol)) return idx;

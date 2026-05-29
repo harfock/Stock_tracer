@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Stock, PriceAlert, StockAnalysis } from '../types';
 import { ChevronDown, Bell, Loader2, Sparkles, TrendingUp, TrendingDown, DollarSign, Activity, AlertCircle, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { clientSideFetchHistoricalChart } from '../lib/yahooFinance';
 
 interface StockRowProps {
   stock: Stock;
@@ -86,26 +87,49 @@ export default function StockRow({
     let active = true;
     const fetchChart = async () => {
       setLoadingChart(true);
+      let dataPoints: any[] | null = null;
+      let isLocalMock = false;
+
       try {
         const res = await fetch('/api/stock/historic-chart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ symbol: stock.symbol, range: currentRange })
         });
-        if (!active) return;
         if (res.ok) {
           const body = await res.json();
           if (body.success && body.data) {
-            setChartData(body.data);
-            setIsMockChart(!!body.isMock);
-            return;
+            dataPoints = body.data;
+            isLocalMock = !!body.isMock;
           }
         }
-        throw new Error('Server returned unsuccessful response code');
       } catch (err) {
-        console.warn('Failed to fetch detailed chart quotes, running client-side chart generator:', err);
-        if (!active) return;
-        
+        console.warn('Backend historic-chart route not available. Trying direct browser Yahoo Finance CORS-proxy query:', err);
+      }
+
+      // Browser CORS proxy direct chart query fallback (for GitHub Pages / static serverless)
+      if (!dataPoints) {
+        try {
+          dataPoints = await clientSideFetchHistoricalChart(stock.symbol, currentRange);
+          isLocalMock = false;
+        } catch (clientErr) {
+          console.error('Core browser Yahoo Finance direct chart query failed:', clientErr);
+        }
+      }
+
+      if (!active) return;
+
+      if (dataPoints) {
+        setChartData(dataPoints);
+        setIsMockChart(isLocalMock);
+        if (active) {
+          setLoadingChart(false);
+        }
+        return;
+      }
+
+      // Generate simulated relative points if all live services face timeouts/blocks
+      try {
         // Generate high-quality relative mock points for the requested timeline
         const pointsCount = currentRange === '1d' ? 24 : currentRange === '5d' ? 30 : currentRange === '1mo' ? 20 : currentRange === '1y' ? 24 : 36;
         const generated: { time: number; price: number; volume: number }[] = [];
