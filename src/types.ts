@@ -2,6 +2,26 @@ export interface NewsItem {
   title: string;
   source: string;
   snippet: string;
+  url?: string;
+}
+
+export interface PolymarketContract {
+  id: string;
+  question: string;
+  outcomes: string[];
+  outcomePrices: string[];
+  volume: string;
+  liquidity: string;
+  endDate: string;
+  slug: string;
+}
+
+export interface BuyPutConsensus {
+  hasSignalSources: boolean;
+  putCallRatio: number;
+  buySignalPercent: number; // scale out of 100
+  recommendation: 'STRONG BUY' | 'BUY' | 'NEUTRAL' | 'PUT/SELL' | 'STRONG PUT/SELL';
+  supportingWebSources: string[];
 }
 
 export interface StockAnalysis {
@@ -18,6 +38,8 @@ export interface StockAnalysis {
   price?: number;
   change?: number;
   changePercent?: number;
+  polymarketContracts?: PolymarketContract[];
+  buyPutConsensus?: BuyPutConsensus;
 }
 
 export interface Stock {
@@ -26,7 +48,7 @@ export interface Stock {
   price: number;
   change: number;
   changePercent: number;
-  market: 'US' | 'HK' | 'A-Share';
+  market: 'US' | 'HK' | 'A-Share' | 'TW' | 'UK' | 'JP' | 'Europe' | 'Canada' | 'Australia' | 'Singapore' | 'Other';
   marketCap: string;
   peRatio: string;
   volume: string;
@@ -34,6 +56,7 @@ export interface Stock {
   low: number;
   history: number[]; // Array of last 20 price points
   analysis?: StockAnalysis;
+  lastUpdated?: string;
 }
 
 export interface PriceAlert {
@@ -51,6 +74,7 @@ export interface MarketIndex {
   price: number;
   change: number;
   changePercent: number;
-  market: 'US' | 'HK' | 'A-Share';
+  market: 'US' | 'HK' | 'A-Share' | 'TW' | 'UK' | 'JP' | 'Europe' | 'Canada' | 'Australia' | 'Singapore' | 'Other';
   history: number[];
+  lastUpdated?: string;
 }

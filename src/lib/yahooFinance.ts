@@ -7,6 +7,8 @@
 const CORS_PROXIES = [
   (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?remove_headers=true&url=${encodeURIComponent(url)}`,
+  (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`,
 ];
 
 /**
@@ -49,6 +51,8 @@ export async function clientSideFetchYahooQuotes(symbols: string[]): Promise<any
         const change = price - prevClose;
         const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
         
+        const shortName = meta.shortName || meta.longName || meta.symbol;
+        
         const indicators = result.indicators?.quote?.[0] || {};
         const highs = (indicators.high || []).filter((h: any) => typeof h === 'number' && h !== null);
         const lows = (indicators.low || []).filter((l: any) => typeof l === 'number' && l !== null);
@@ -77,6 +81,7 @@ export async function clientSideFetchYahooQuotes(symbols: string[]): Promise<any
             high: Number(high.toFixed(2)),
             low: Number(low.toFixed(2)),
             volume: volumeStr,
+            shortName: shortName,
             history: history.length >= 3 ? history : [price * 0.99, price * 1.01, price]
           }
         };

@@ -33,7 +33,7 @@ export const initialIndices: MarketIndex[] = [
   },
   {
     symbol: 'HSI',
-    name: 'Hang Seng Index / 恒生指數',
+    name: 'Hang Seng Index',
     price: 18451.25,
     change: 342.18,
     changePercent: 1.89,
@@ -42,7 +42,7 @@ export const initialIndices: MarketIndex[] = [
   },
   {
     symbol: '000001.SS',
-    name: 'SSE Composite / 上證指數',
+    name: 'SSE Composite',
     price: 3110.42,
     change: 14.53,
     changePercent: 0.47,
