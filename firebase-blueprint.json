@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "Stock": {
+      "title": "Stock",
+      "description": "Stock data",
+      "type": "object",
+      "properties": {
+        "symbol": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "change": { "type": "number" },
+        "changePercent": { "type": "number" },
+        "market": { "type": "string" },
+        "marketCap": { "type": "string" },
+        "peRatio": { "type": "string" },
+        "volume": { "type": "string" },
+        "high": { "type": "number" },
+        "low": { "type": "number" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["symbol", "name", "price"]
+    },
+    "PriceAlert": {
+      "title": "PriceAlert",
+      "description": "User price alert",
+      "type": "object",
+      "properties": {
+        "symbol": { "type": "string" },
+        "condition": { "type": "string", "enum": ["above", "below"] },
+        "value": { "type": "number" },
+        "active": { "type": "boolean" },
+        "triggeredAt": { "type": "string" }
+      },
+      "required": ["symbol", "condition", "value", "active"]
+    }
+  },
+  "firestore": {
+    "stocks/{symbol}": {
+      "schema": { "$ref": "Stock" },
+      "description": "Stock information collection"
+    },
+    "users/{userId}/priceAlerts/{alertId}": {
+      "schema": { "$ref": "PriceAlert" },
+      "description": "User specific price alerts"
+    }
+  }
+}

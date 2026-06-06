@@ -255,6 +255,7 @@ export default function App() {
   // Custom stock additions with debounced live autocomplete search matching
   const [newSymbol, setNewSymbol] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
+  const [selectedAddingMarket, setSelectedAddingMarket] = useState<'Auto' | 'US' | 'HK' | 'A-Share' | 'TW' | 'JP' | 'UK'>('Auto');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [isValidatingStock, setIsValidatingStock] = useState<boolean>(false);
   const [validationStockError, setValidationStockError] = useState<string>('');
@@ -654,23 +655,53 @@ export default function App() {
 
     // Clean space and parse purely numeric or standard HK/A-Share codes
     const cleanSym = ticker.replace(/\s+/g, '');
-    if (/^\d+$/.test(cleanSym)) {
-      if (cleanSym.length === 6) {
-        // SSE starts with 6, SZSE starts with 0 or 3
-        const suffix = cleanSym.startsWith('6') ? '.SS' : '.SZ';
-        ticker = `${cleanSym}${suffix}`;
+    
+    if (selectedAddingMarket === 'HK') {
+      const numCode = cleanSym.replace(/\.HK$/i, '');
+      if (/^\d+$/.test(numCode)) {
+        ticker = `${numCode.padStart(4, '0')}.HK`;
       } else {
-        const paddedCode = cleanSym.length < 4 ? cleanSym.padStart(4, '0') : cleanSym;
-        ticker = `${paddedCode}.HK`;
+        ticker = cleanSym.endsWith('.HK') ? cleanSym : `${cleanSym}.HK`;
       }
-    } else if (/^\d+\.HK$/i.test(cleanSym)) {
-      const parts = cleanSym.split('.');
-      const paddedCode = parts[0].length < 4 ? parts[0].padStart(4, '0') : parts[0];
-      ticker = `${paddedCode}.HK`;
-    } else if (/^\d+\.(SS|SZ)$/i.test(cleanSym)) {
-      const parts = cleanSym.split('.');
-      const paddedCode = parts[0].padStart(6, '0');
-      ticker = `${paddedCode}.${parts[1].toUpperCase()}`;
+    } else if (selectedAddingMarket === 'A-Share') {
+      const numCode = cleanSym.replace(/\.(SS|SZ)$/i, '');
+      if (/^\d{6}$/.test(numCode)) {
+        const suffix = numCode.startsWith('6') ? '.SS' : '.SZ';
+        ticker = `${numCode}${suffix}`;
+      } else {
+        ticker = cleanSym;
+      }
+    } else if (selectedAddingMarket === 'TW') {
+      const code = cleanSym.replace(/\.TW$/i, '');
+      ticker = `${code}.TW`;
+    } else if (selectedAddingMarket === 'JP') {
+      const code = cleanSym.replace(/\.T$/i, '');
+      ticker = `${code}.T`;
+    } else if (selectedAddingMarket === 'UK') {
+      const code = cleanSym.replace(/\.L$/i, '');
+      ticker = `${code}.L`;
+    } else if (selectedAddingMarket === 'US') {
+      ticker = cleanSym.split('.')[0]; // strip external suffix if any
+    } else {
+      // Auto-Detect / Standard Mode
+      if (/^\d+$/.test(cleanSym)) {
+        if (cleanSym.length === 6) {
+          // SSE starts with 6, SZSE starts with 0 or 3
+          const suffix = cleanSym.startsWith('6') ? '.SS' : '.SZ';
+          ticker = `${cleanSym}${suffix}`;
+        } else {
+          const paddedCode = cleanSym.length < 4 ? cleanSym.padStart(4, '0') : cleanSym;
+          ticker = `${paddedCode}.HK`;
+        }
+      } else if (/^\d+\.HK$/i.test(cleanSym)) {
+        const parts = cleanSym.split('.');
+        const paddedCode = parts[0].length < 4 ? parts[0].padStart(4, '0') : parts[0];
+        ticker = `${paddedCode}.HK`;
+      } else if (/^\d+\.(SS|SZ)$/i.test(cleanSym)) {
+        const parts = cleanSym.split('.');
+        const paddedCode = parts[0].padStart(6, '0');
+        ticker = `${paddedCode}.${parts[1].toUpperCase()}`;
+      }
     }
 
     const finalTicker = ticker;
@@ -714,24 +745,32 @@ export default function App() {
         }
       }
 
-      // Dynamic local & offline fallback if remote endpoints fail/rate-limit
+      // STRICT PROTECTION: Prevent fake stock price creation from dynamic custom fallbacks
       if (!quoteData) {
-        const resolvedMarket = getMarketFromSymbol(finalTicker);
         const localMatch = lookupBilingualStock(finalTicker);
-        const fallbackName = localMatch ? localMatch.name : (newName.trim() || `${finalTicker} Corp`);
-        const mockPrice = resolvedMarket === 'HK' ? 42.50 + Math.random() * 150 : (resolvedMarket === 'A-Share' ? 18.00 + Math.random() * 60 : 120.00);
-        
-        console.info(`[Offline Fallback] Resolved ticker ${finalTicker} dynamically locally as: ${fallbackName}`);
-        quoteData = {
-          price: mockPrice,
-          change: (Math.random() - 0.48) * (mockPrice * 0.04),
-          changePercent: (Math.random() - 0.48) * 4,
-          high: mockPrice * 1.015,
-          low: mockPrice * 0.985,
-          volume: '8.4M',
-          shortName: fallbackName,
-          history: []
-        };
+        if (localMatch) {
+          // If the stock is predefined & authenticated, allow a graceful simulated fallback only if offline/network blocked
+          const resolvedMarket = getMarketFromSymbol(finalTicker);
+          const fallbackName = localMatch.name;
+          const mockPrice = resolvedMarket === 'HK' ? 42.50 + Math.random() * 150 : (resolvedMarket === 'A-Share' ? 18.00 + Math.random() * 60 : 120.00);
+          
+          console.info(`[Offline Predefined Fallback] Resolved ticker ${finalTicker} dynamically locally as: ${fallbackName}`);
+          quoteData = {
+            price: mockPrice,
+            change: (Math.random() - 0.48) * (mockPrice * 0.04),
+            changePercent: (Math.random() - 0.48) * 4,
+            high: mockPrice * 1.015,
+            low: mockPrice * 0.985,
+            volume: '8.4M',
+            shortName: fallbackName,
+            history: []
+          };
+        } else {
+          // Strictly reject addition! Make sure no fake stock prices are drained from arbitrary typed names
+          setValidationStockError(`Strict Verification Failed: Unrecognized ticker symbol "${finalTicker}". To prevent unverified synthetic data pollution, adding fake or unlisted stock tickers with simulated fallback prices is strictly prohibited.`);
+          setIsValidatingStock(false);
+          return;
+        }
       }
 
       // 2. Resolve market automatically from ticker string
@@ -1116,7 +1155,7 @@ export default function App() {
                       : 'bg-slate-900 text-white hover:bg-slate-800'
                   }`}
                 >
-                  <Plus size={14} />
+                  <span className="text-sm font-bold leading-none">+</span>
                   <span>Custom Tracker</span>
                 </button>
               </div>
@@ -1127,12 +1166,15 @@ export default function App() {
             {showAddForm && (
               <form
                 onSubmit={handleAddStock}
-                className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4 relative"
+                className="bg-white border border-gray-200 rounded-xl p-6.5 shadow-md space-y-5.5 relative animate-fade-in"
               >
-                <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                  <h4 className="font-semibold text-slate-900 text-xs uppercase tracking-widest">
-                    Add New Watchlist Stock
-                  </h4>
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <h4 className="font-bold text-slate-900 text-xs uppercase tracking-widest font-sans">
+                      Add New Watchlist Stock
+                    </h4>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -1140,36 +1182,85 @@ export default function App() {
                       setValidationStockError('');
                       setSearchSuggestions([]);
                     }}
-                    className="text-xs text-gray-400 hover:text-gray-700 font-medium"
+                    className="text-xs text-slate-400 hover:text-rose-600 font-bold tracking-wide cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
                 </div>
 
                 {validationStockError && (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-4 py-2.5 rounded-lg font-medium leading-relaxed">
-                    {validationStockError}
+                  <div className="bg-rose-50 border border-rose-200/80 text-rose-700 text-xs px-4 py-3 rounded-xl font-medium leading-relaxed shadow-xs flex items-start gap-2.5">
+                    <svg className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{validationStockError}</span>
                   </div>
                 )}
+
+                {/* Visual Segmented Exchange / Market Selector */}
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-bold uppercase block tracking-wider">
+                    Target Exchange / Market Selector
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-150">
+                    {(['Auto', 'US', 'HK', 'A-Share', 'TW', 'JP', 'UK'] as const).map((mkt) => {
+                      const isActive = selectedAddingMarket === mkt;
+                      let displayName: string = mkt;
+                      if (mkt === 'Auto') displayName = '🔍 Auto-Detect';
+                      else if (mkt === 'US') displayName = '🇺🇸 US Market';
+                      else if (mkt === 'HK') displayName = '🇭🇰 Hong Kong';
+                      else if (mkt === 'A-Share') displayName = '🇨🇳 A-Shares';
+                      else if (mkt === 'TW') displayName = '🇹🇼 Taiwan';
+                      else if (mkt === 'JP') displayName = '🇯🇵 Japan';
+                      else if (mkt === 'UK') displayName = '🇬🇧 United Kingdom';
+
+                      return (
+                        <button
+                          key={mkt}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAddingMarket(mkt);
+                            setValidationStockError('');
+                          }}
+                          className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer font-sans select-none shrink-0 border ${
+                            isActive
+                              ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          {displayName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="text-[9.5px] text-slate-400 block font-mono leading-relaxed">
+                    Selecting an explicit market configures correct suffixing (e.g., Taiwanese 4-digit code as <code className="bg-slate-100 px-1 py-0.2 rounded font-semibold text-slate-700">2330.TW</code>, Japanese as <code className="bg-slate-100 px-1 py-0.2 rounded font-semibold text-slate-700">7203.T</code>).
+                  </span>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Ticker Search Box */}
                   <div className="relative">
-                    <label className="text-[10px] text-gray-400 font-semibold uppercase block mb-1.5 tracking-wider">
-                      Ticker Ticker/Name Search *
+                    <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 tracking-wider">
+                      Ticker / Name Search *
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         required
                         disabled={isValidatingStock}
-                        placeholder="Type '2388', 'apple', '0700', etc..."
+                        placeholder={
+                          selectedAddingMarket === 'TW' ? "Type '2330' or 'TSMC'..." :
+                          selectedAddingMarket === 'JP' ? "Type '7203' or 'Toyota'..." :
+                          selectedAddingMarket === 'HK' ? "Type '0700' or 'Tencent'..." :
+                          "Type 'AAPL', 'MSFT', '600519', etc..."
+                        }
                         value={newSymbol}
                         onChange={(e) => setNewSymbol(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs px-3 py-2.5 focus:outline-none focus:border-slate-500 text-slate-800 font-mono"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg text-xs px-3.5 py-2.5 focus:outline-none focus:border-slate-800 text-slate-800 font-mono tracking-wide shadow-inner"
                       />
                       {isSearchingSuggestions && (
-                        <div className="absolute right-3 top-3 flex items-center">
+                        <div className="absolute right-3.5 top-3 flex items-center">
                           <span className="w-3.5 h-3.5 border-2 border-slate-350 border-t-slate-800 rounded-full animate-spin shrink-0" />
                         </div>
                       )}
@@ -1180,8 +1271,8 @@ export default function App() {
 
                     {/* Autocomplete suggestions popup panel */}
                     {searchSuggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-250 rounded-xl shadow-xl divide-y divide-gray-100 animate-fade-in divide-dashed">
-                        <div className="px-3 py-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between items-center sticky top-0 border-b border-gray-100">
+                      <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-white border border-gray-250 rounded-xl shadow-xl divide-y divide-gray-100 animate-fade-in divide-dashed">
+                        <div className="px-3 py-2.1 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex justify-between items-center sticky top-0 border-b border-gray-100">
                           <span>Multiple Matching Stocks</span>
                           <span className="bg-slate-200 text-slate-700 font-mono text-[9px] px-1.5 py-0.5 rounded font-medium">Select your match</span>
                         </div>
@@ -1214,7 +1305,7 @@ export default function App() {
 
                   {/* Corporate Name Block */}
                   <div>
-                    <label className="text-[10px] text-gray-400 font-semibold uppercase block mb-1.5 tracking-wider">
+                    <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 tracking-wider">
                       Company Name (Autofilled / Custom)
                     </label>
                     <input
@@ -1223,7 +1314,7 @@ export default function App() {
                       placeholder="Will autofill from matched item"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs px-3 py-2.5 focus:outline-none focus:border-slate-500 text-slate-800"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg text-xs px-3.5 py-2.5 focus:outline-none focus:border-slate-800 text-slate-800 font-sans shadow-inner"
                     />
                     <span className="text-[9px] text-slate-400 block mt-1">
                       Pick above or edit manually if needed
@@ -1254,15 +1345,16 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 items-center">
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 items-center">
                   <button
                     type="button"
                     disabled={isValidatingStock}
                     onClick={() => {
                       setNewSymbol('GOOG');
+                      setSelectedAddingMarket('US');
                       setNewName('Alphabet Inc.');
                     }}
-                    className="text-[10px] text-gray-400 hover:text-gray-600 tracking-wide font-medium mr-auto disabled:opacity-40"
+                    className="text-[10px] text-slate-400 hover:text-slate-600 tracking-wide font-bold mr-auto disabled:opacity-40 cursor-pointer"
                   >
                     Load Sample (GOOG)
                   </button>
@@ -1270,12 +1362,12 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={isValidatingStock}
-                    className="bg-slate-900 text-white rounded-lg px-4.5 py-2 text-xs font-semibold hover:bg-slate-800 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-xs"
+                    className="bg-slate-900 text-white rounded-lg px-4.5 py-2.2 text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
                   >
                     {isValidatingStock ? (
                       <>
                         <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
-                        <span>Validating with Yahoo...</span>
+                        <span>Validating Live Price...</span>
                       </>
                     ) : (
                       <span>Add Portfolio Watch</span>
