@@ -48,7 +48,7 @@ interface TriggeredNotification {
   time: string;
 }
 
-const COMMON_BILINGUAL_TICKERS: Record<string, { name: string; market: 'US' | 'HK' | 'A-Share' }> = {
+const COMMON_BILINGUAL_TICKERS: Record<string, { name: string; market: Stock['market'] }> = {
   'AAPL': { name: 'Apple Inc.', market: 'US' },
   'TSLA': { name: 'Tesla Inc.', market: 'US' },
   'NVDA': { name: 'NVIDIA Corp.', market: 'US' },
@@ -56,6 +56,22 @@ const COMMON_BILINGUAL_TICKERS: Record<string, { name: string; market: 'US' | 'H
   'GOOG': { name: 'Alphabet Inc.', market: 'US' },
   'AMZN': { name: 'Amazon.com Inc.', market: 'US' },
   'META': { name: 'Meta Platforms', market: 'US' },
+  'AMD': { name: 'Advanced Micro Devices', market: 'US' },
+  'NFLX': { name: 'Netflix Inc.', market: 'US' },
+  'QCOM': { name: 'Qualcomm Inc.', market: 'US' },
+  'INTC': { name: 'Intel Corp.', market: 'US' },
+  'ASML': { name: 'ASML Holding', market: 'US' },
+  'SMCI': { name: 'Super Micro Computer', market: 'US' },
+  'AVGO': { name: 'Broadcom Inc.', market: 'US' },
+  'BRK-B': { name: 'Berkshire Hathaway', market: 'US' },
+  'JPM': { name: 'JPMorgan Chase & Co.', market: 'US' },
+  'DIS': { name: 'Walt Disney Co.', market: 'US' },
+  'COIN': { name: 'Coinbase Global', market: 'US' },
+  'ARM': { name: 'ARM Holdings', market: 'US' },
+  'NKE': { name: 'Nike Inc.', market: 'US' },
+  'XOM': { name: 'Exxon Mobil Corp.', market: 'US' },
+  'COST': { name: 'Costco Wholesale Corp.', market: 'US' },
+  'MRVL': { name: 'Marvell Technology, Inc.', market: 'US' },
 
   '0700.HK': { name: 'Tencent / 騰訊控股', market: 'HK' },
   '9988.HK': { name: 'Alibaba / 阿里巴巴-W', market: 'HK' },
@@ -68,7 +84,7 @@ const COMMON_BILINGUAL_TICKERS: Record<string, { name: string; market: 'US' | 'H
   '9999.HK': { name: 'NetEase / 網易-S', market: 'HK' },
   '1024.HK': { name: 'Kuaishou / 快手-W', market: 'HK' },
   '2318.HK': { name: 'Ping An / 中國平安', market: 'HK' },
-  '1211.HK': { name: 'BYD Company / 比亞迪股份', market: 'HK' },
+  '1211.HK': { name: 'BYD Company / 比亞比股份', market: 'HK' },
   '0001.HK': { name: 'CKH Holdings / 長江和記', market: 'HK' },
   '0002.HK': { name: 'CLP Holdings / 中電控股', market: 'HK' },
   '0003.HK': { name: 'Hong Kong & China Gas / 中華煤氣', market: 'HK' },
@@ -133,9 +149,40 @@ const COMMON_BILINGUAL_TICKERS: Record<string, { name: string; market: 'US' | 'H
   '002475.SZ': { name: 'Luxshare Precision / 立訊精密', market: 'A-Share' },
   '300015.SZ': { name: 'Aier Eye Hospital / 愛爾眼科', market: 'A-Share' },
   '300124.SZ': { name: 'Inovance Technology / 匯川技術', market: 'A-Share' },
+
+  '2330.TW': { name: 'TSMC / 台積電', market: 'TW' },
+  '2317.TW': { name: 'Foxconn Hon Hai / 鴻海 precision', market: 'TW' },
+  '2454.TW': { name: 'MediaTek / 聯發科', market: 'TW' },
+  '2382.TW': { name: 'Quanta Computer / 廣達', market: 'TW' },
+  '2308.TW': { name: 'Delta Electronics / 台達電', market: 'TW' },
+  '2303.TW': { name: 'UMC / 聯電', market: 'TW' },
+  '2881.TW': { name: 'Fubon Financial / 富邦金', market: 'TW' },
+  '2882.TW': { name: 'Cathay Financial / 國泰金', market: 'TW' },
+  '3008.TW': { name: 'Largan Precision / 大立光', market: 'TW' },
+
+  '7203.T': { name: 'Toyota Motor / 豐田汽車', market: 'JP' },
+  '6758.T': { name: 'Sony Group / 索尼', market: 'JP' },
+  '6861.T': { name: 'Keyence / 基恩士', market: 'JP' },
+  '8035.T': { name: 'Tokyo Electron / 東京威力科創', market: 'JP' },
+  '8306.T': { name: 'MUFG / 三菱日聯金融', market: 'JP' },
+  '9983.T': { name: 'Fast Retailing (Uniqlo) / 迅銷股份', market: 'JP' },
+  '9984.T': { name: 'SoftBank Group / 軟銀集團', market: 'JP' },
+  '6501.T': { name: 'Hitachi / 日立製作所', market: 'JP' },
+  '7974.T': { name: 'Nintendo / 任天堂', market: 'JP' },
+  '4502.T': { name: 'Takeda Pharmaceutical / 武田製藥', market: 'JP' },
+
+  'AZN.L': { name: 'AstraZeneca PLC / 阿斯利康', market: 'UK' },
+  'SHEL.L': { name: 'Shell PLC / 殼牌', market: 'UK' },
+  'HSBA.L': { name: 'HSBC Holdings PLC / 匯豐控股', market: 'UK' },
+  'ULVR.L': { name: 'Unilever PLC / 聯合利華', market: 'UK' },
+  'BP.L': { name: 'BP PLC / 英國石油', market: 'UK' },
+  'DGE.L': { name: 'Diageo PLC / 帝亞吉歐', market: 'UK' },
+  'GSK.L': { name: 'GSK PLC / 葛蘭素史克', market: 'UK' },
+  'BARC.L': { name: 'Barclays PLC / 巴克萊銀行', market: 'UK' },
+  'RR.L': { name: 'Rolls-Royce Holdings / 勞斯萊斯', market: 'UK' }
 };
 
-function lookupBilingualStock(inputSym: string): { name: string; market: 'US' | 'HK' | 'A-Share' } | null {
+function lookupBilingualStock(inputSym: string): { name: string; market: Stock['market'] } | null {
   const cleanSym = inputSym.trim().toUpperCase().replace(/\s+/g, '');
   if (!cleanSym) return null;
   
@@ -147,6 +194,14 @@ function lookupBilingualStock(inputSym: string): { name: string; market: 'US' | 
     const padded = cleanSym.padStart(4, '0') + '.HK';
     if (COMMON_BILINGUAL_TICKERS[padded]) {
       return COMMON_BILINGUAL_TICKERS[padded];
+    }
+    const twPadded = cleanSym + '.TW';
+    if (COMMON_BILINGUAL_TICKERS[twPadded]) {
+      return COMMON_BILINGUAL_TICKERS[twPadded];
+    }
+    const jpPadded = cleanSym + '.T';
+    if (COMMON_BILINGUAL_TICKERS[jpPadded]) {
+      return COMMON_BILINGUAL_TICKERS[jpPadded];
     }
     const aPaddedSz = cleanSym.padStart(6, '0') + '.SZ';
     if (COMMON_BILINGUAL_TICKERS[aPaddedSz]) {
@@ -166,6 +221,12 @@ function lookupBilingualStock(inputSym: string): { name: string; market: 'US' | 
     const padded = parts[0].padStart(6, '0') + '.' + parts[1];
     if (COMMON_BILINGUAL_TICKERS[padded]) {
       return COMMON_BILINGUAL_TICKERS[padded];
+    }
+  } else {
+    // If user enters string like "US" stock with lowercase or padded, or e.g. "BRK.B" / "BRK-B"
+    const cleanedUS = cleanSym.replace('.', '-');
+    if (COMMON_BILINGUAL_TICKERS[cleanedUS]) {
+      return COMMON_BILINGUAL_TICKERS[cleanedUS];
     }
   }
   
@@ -295,7 +356,7 @@ export default function App() {
         matchesLocal.push({
           symbol: sym,
           name: val.name,
-          exchange: val.market === 'HK' ? 'HKG' : val.market === 'A-Share' ? 'SSE/SZSE' : 'US',
+          exchange: val.market === 'HK' ? 'HKG' : val.market === 'A-Share' ? 'SSE/SZSE' : val.market === 'TW' ? 'TWSE' : val.market === 'JP' ? 'TSE' : val.market === 'UK' ? 'LSE' : 'US',
           type: 'EQUITY',
           isLocal: true
         });
@@ -752,7 +813,18 @@ export default function App() {
           // If the stock is predefined & authenticated, allow a graceful simulated fallback only if offline/network blocked
           const resolvedMarket = getMarketFromSymbol(finalTicker);
           const fallbackName = localMatch.name;
-          const mockPrice = resolvedMarket === 'HK' ? 42.50 + Math.random() * 150 : (resolvedMarket === 'A-Share' ? 18.00 + Math.random() * 60 : 120.00);
+          let mockPrice = 120.00;
+          if (resolvedMarket === 'HK') {
+            mockPrice = 42.50 + Math.random() * 150;
+          } else if (resolvedMarket === 'A-Share') {
+            mockPrice = 18.00 + Math.random() * 60;
+          } else if (resolvedMarket === 'TW') {
+            mockPrice = 100.00 + Math.random() * 800;
+          } else if (resolvedMarket === 'JP') {
+            mockPrice = 500.00 + Math.random() * 4500;
+          } else if (resolvedMarket === 'UK') {
+            mockPrice = 200.00 + Math.random() * 1500;
+          }
           
           console.info(`[Offline Predefined Fallback] Resolved ticker ${finalTicker} dynamically locally as: ${fallbackName}`);
           quoteData = {
